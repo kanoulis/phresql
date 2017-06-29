@@ -43,7 +43,7 @@
 		private $pdo = null;
 
 		public function __construct(PDO $pdo) {
-			$this->pdo 		  = $pdo;
+			$this->pdo 	= $pdo;
 			$this->method  	= $_SERVER['REQUEST_METHOD'];
 			$this->path    	= preg_replace('/[^a-z0-9_]+/i', '', explode('/', @trim($_SERVER['PATH_INFO'],'/')));
 			$this->table   	= array_shift($this->path);
@@ -62,13 +62,13 @@
 
 		public function read() {
 
-			$rows 						= array();
-			$fields 					= "*";
-			$where 						= 'active = 1' .($this->id ? ' AND id=:id' : '');
-			$bind   					= $this->id ? array(':id' => $this->id) : null;
+			$rows 		= array();
+			$fields 	= "*";
+			$where 		= 'active = 1' .($this->id ? ' AND id=:id' : '');
+			$bind   	= $this->id ? array(':id' => $this->id) : null;
 
-			$sql 						  = "SELECT " . $fields . " FROM " . $this->table . (!empty($where) ? " WHERE " . $where : "");
-			$stmt 						= $this->pdo->prepare($sql);
+			$sql 		= "SELECT " . $fields . " FROM " . $this->table . (!empty($where) ? " WHERE " . $where : "");
+			$stmt 		= $this->pdo->prepare($sql);
 
 			$stmt->execute($bind);
 			while($row = $stmt->fetch(PDO::FETCH_ASSOC))
@@ -78,16 +78,16 @@
 
 		public function create() {
 
-			$fields 					= array();
-			$bind 						= array();
+			$fields 	= array();
+			$bind 		= array();
 
 			foreach($this->data as $key=>$value){
 
-				$fields[":$key"] 		= $key;
-				$bind[":$key"] 			= $value;
+				$fields[":$key"] 	= $key;
+				$bind[":$key"] 		= $value;
 			}
-			$sql 						  = "INSERT INTO " . $this->table . " (" . implode($fields, ', ') . ") VALUES (:" . implode($fields, ', :') . ");";
-			$stmt 						= $this->pdo->prepare($sql);
+			$sql 		= "INSERT INTO " . $this->table . " (" . implode($fields, ', ') . ") VALUES (:" . implode($fields, ', :') . ");";
+			$stmt 		= $this->pdo->prepare($sql);
 
 			$stmt->execute($bind);
 			self::render($this->pdo->lastInsertId(), array('message'=>'Insert failed'));
@@ -95,18 +95,18 @@
 
 		public function update() {
 
-			$set 						  = array();
-			$this->data				= $this->method == 'DELETE' ? array('active'=>'0') : $this->data;
-			$where	   				= 'id=:id AND active=1';
-			$bind   					= array( ':id' => $this->id);
+			$set 		= array();
+			$this->data	= $this->method == 'DELETE' ? array('active'=>'0') : $this->data;
+			$where	   	= 'id=:id AND active=1';
+			$bind   	= array( ':id' => $this->id);
 
 			foreach($this->data as $key=>$value){
-
-				$bind[":$key"] 		  = $value;
-				$set[] 					    = $key. '= :' .$key;
+				
+				$bind[":$key"]		= $value;
+				$set[]			= $key. '= :' .$key;
 			}
-			$sql 						  = "UPDATE " . $this->table . " SET " .(implode(', ', $set)). " WHERE " . $where;
-			$stmt 						= $this->pdo->prepare($sql);
+			$sql 		= "UPDATE " . $this->table . " SET " .(implode(', ', $set)). " WHERE " . $where;
+			$stmt 		= $this->pdo->prepare($sql);
 
 			$stmt->execute($bind);
 			self::render($stmt->rowCount(), array('message'=>'Update failed'));
