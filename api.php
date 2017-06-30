@@ -23,7 +23,7 @@
 				$api->create();
 			break;
 			case 'DELETE':
-				$api->update();
+				$api->delete();
 			break;
 			default:
 				echo json_encode(array('message' => 'Method not allowed'), JSON_UNESCAPED_UNICODE) . PHP_EOL;
@@ -64,7 +64,7 @@
 
 			$rows 		= array();
 			$fields 	= "*";
-			$where 		= 'active = 1' .($this->id ? ' AND id=:id' : '');
+			$where 		= $this->id ? 'id=:id' : '';
 			$bind   	= $this->id ? array(':id' => $this->id) : null;
 
 			$sql 		= "SELECT " . $fields . " FROM " . $this->table . (!empty($where) ? " WHERE " . $where : "");
@@ -96,8 +96,7 @@
 		public function update() {
 
 			$set 		= array();
-			$this->data	= $this->method == 'DELETE' ? array('active'=>'0') : $this->data;
-			$where	   	= 'id=:id AND active=1';
+			$where	   	= 'id=:id';
 			$bind   	= array( ':id' => $this->id);
 
 			foreach($this->data as $key=>$value){
@@ -110,6 +109,19 @@
 
 			$stmt->execute($bind);
 			self::render($stmt->rowCount(), array('message'=>'Update failed'));
+		}
+		
+		public function delete() {
+
+			$set 		= array();
+			$where	   	= 'id=:id';
+			$bind   	= array( ':id' => $this->id);
+
+			$sql 		= "DELETE FROM " . $this->table . " WHERE " . $where;
+			$stmt 		= $this->pdo->prepare($sql);
+
+			$stmt->execute($bind);
+			self::render($stmt->rowCount(), array('message'=>'Delete failed'));
 		}
 
 		private function render($out, $error) {
