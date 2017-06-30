@@ -51,6 +51,19 @@
 			$this->input   	= file_get_contents('php://input');
 			$this->data   	= json_decode($this->input, true);
 
+			if ($this->method == 'OPTIONS') {
+				if (isset($_SERVER['HTTP_ACCESS_CONTROL_REQUEST_METHOD']) && in_array($_SERVER['HTTP_ACCESS_CONTROL_REQUEST_METHOD'], array('POST','PATCH','DELETE','PUT'))){
+					header('Access-Control-Allow-Origin: *');
+					header("Access-Control-Allow-Credentials: true");
+					header('Access-Control-Allow-Headers: X-Requested-With');
+					header('Access-Control-Allow-Headers: Content-Type');
+					header('Access-Control-Allow-Methods: POST, PATCH, DELETE, PUT, GET, OPTIONS');
+					header('Access-Control-Max-Age: 86400');
+				}
+				http_response_code(204);
+				exit;
+			}
+			
 			if(!$this->table) throw new Exception("Table name is missing");
 			if(json_last_error() !== 0) throw new Exception("Invalid JSON format");
 			if(strpos($this->input, '[' ) === 0) throw new Exception("Multiple items are not allowed");
