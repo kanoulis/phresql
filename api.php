@@ -43,14 +43,10 @@
 		private $pdo = null;
 
 		public function __construct(PDO $pdo) {
+			
 			$this->pdo 	= $pdo;
 			$this->method  	= $_SERVER['REQUEST_METHOD'];
-			$this->path    	= preg_replace('/[^a-z0-9_]+/i', '', explode('/', @trim($_SERVER['PATH_INFO'],'/')));
-			$this->table   	= array_shift($this->path);
-			$this->id      	= array_shift($this->path)+0;
-			$this->input   	= file_get_contents('php://input');
-			$this->data   	= json_decode($this->input, true);
-
+			
 			if ($this->method == 'OPTIONS') {
 				if (isset($_SERVER['HTTP_ACCESS_CONTROL_REQUEST_METHOD']) && in_array($_SERVER['HTTP_ACCESS_CONTROL_REQUEST_METHOD'], array('POST','PATCH','DELETE','PUT'))){
 					header('Access-Control-Allow-Origin: *');
@@ -61,8 +57,14 @@
 					header('Access-Control-Max-Age: 86400');
 				}
 				http_response_code(204);
-				exit;
+				exit(0);
 			}
+			
+			$this->path    	= preg_replace('/[^a-z0-9_]+/i', '', explode('/', @trim($_SERVER['PATH_INFO'],'/')));
+			$this->table   	= array_shift($this->path);
+			$this->id      	= array_shift($this->path)+0;
+			$this->input   	= file_get_contents('php://input');
+			$this->data   	= json_decode($this->input, true);
 			
 			if(!$this->table) throw new Exception("Table name is missing");
 			if(json_last_error() !== 0) throw new Exception("Invalid JSON format");
@@ -147,6 +149,6 @@
 				echo json_encode($error, JSON_UNESCAPED_UNICODE) . PHP_EOL;
 				http_response_code(202);
 			}
-			exit(1);
+			exit(0);
 		}
 	}
