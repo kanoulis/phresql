@@ -1,16 +1,32 @@
 <?php
 
 	try {
-		date_default_timezone_set('Europe/Athens');
-
+		/* Set timezone and character encoding */
+		
+		date_default_timezone_set('Europe/Athens');		
+		mb_internal_encoding('UTF-8');
+		mb_http_output('UTF-8');
+		mb_http_input('UTF-8');
+		mb_language('uni');
+		mb_regex_encoding('UTF-8');
+		ob_start('mb_output_handler');
+		
+		/* Set database */
+		
 		if (!file_exists('db/api.db')) {
 			mkdir('db');
 		}
 		$pdo = new PDO('sqlite:db/api.db');
 		$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 		$pdo->exec('create table if not exists notes(id integer primary key, tag text not null, entry text not null unique, active integer default 1)');
-
-		$api = new Api($pdo);
+		
+		/* Enable Cross-Origin Resource Sharing for selected http methods */
+		
+		$cors_enable = array('PATCH','DELETE','PUT');
+		
+		/* Serve the request */
+		
+		$api = new Api($pdo, $cors_enable);
 
 		switch ($api->method()) {
 			case 'GET':
@@ -26,15 +42,13 @@
 				$api->delete();
 			break;
 			default:
-				echo json_encode(array('message' => 'Method not allowed'), JSON_UNESCAPED_UNICODE) . PHP_EOL;
-				http_response_code(405);
+				$api->method_not_allowed();
 			break;
 		}
 	}
 	catch(Exception $e)
 	{
-		echo json_encode(array('message' => $e->getMessage()), JSON_UNESCAPED_UNICODE) . PHP_EOL;
-		http_response_code(500);
+		$api->error($e->getMessage());
 	}
 
 
@@ -42,18 +56,19 @@
 
 		private $pdo = null;
 
-		public function __construct(PDO $pdo) {
+		public function __construct(PDO $pdo, $cors_enable=false) {
 			
-			$this->pdo 	= $pdo;
-			$this->method  	= $_SERVER['REQUEST_METHOD'];
+			$this->pdo 		= $pdo;			
+			$this->method		= $_SERVER['REQUEST_METHOD'];
+			$this->cors_enable	= $cors_enable;
 			
-			if ($this->method == 'OPTIONS') {
-				if (isset($_SERVER['HTTP_ACCESS_CONTROL_REQUEST_METHOD']) && in_array($_SERVER['HTTP_ACCESS_CONTROL_REQUEST_METHOD'], array('POST','PATCH','DELETE','PUT'))){
+			if ($this->method == 'OPTIONS' && is_array($this->cors_enable)) {
+				if (isset($_SERVER['HTTP_ACCESS_CONTROL_REQUEST_METHOD']) && in_array($_SERVER['HTTP_ACCESS_CONTROL_REQUEST_METHOD'], $this->cors_enable)){
 					header('Access-Control-Allow-Origin: *');
 					header("Access-Control-Allow-Credentials: true");
 					header('Access-Control-Allow-Headers: X-Requested-With');
 					header('Access-Control-Allow-Headers: Content-Type');
-					header('Access-Control-Allow-Methods: POST, PATCH, DELETE, PUT, GET, OPTIONS');
+					header('Access-Control-Allow-Methods: '.implode(',', $this->cors_enable).', GET, OPTIONS');
 					header('Access-Control-Max-Age: 86400');
 				}
 				http_response_code(204);
@@ -77,7 +92,7 @@
 
 		public function read() {
 
-			$rows 		= array();
+			$rows		= array();
 			$fields 	= "*";
 			$where 		= $this->id ? 'id=:id' : '';
 			$bind   	= $this->id ? array(':id' => $this->id) : null;
@@ -88,7 +103,8 @@
 			$stmt->execute($bind);
 			while($row = $stmt->fetch(PDO::FETCH_ASSOC))
 				$rows[] = $row;
-			self::render($rows, array('message'=>'No record'));
+			self::render($rows ? array('status'=>200, 'message'=>$rows) : array('status'=>202, 'message'=>'No record'));
+			
 		}
 
 		public function create() {
@@ -105,7 +121,7 @@
 			$stmt 		= $this->pdo->prepare($sql);
 
 			$stmt->execute($bind);
-			self::render($this->pdo->lastInsertId(), array('message'=>'Insert failed'));
+			self::render($this->pdo->lastInsertId() ? array('status'=>201, 'message'=>$this->pdo->lastInsertId()) : array('status'=>400, 'message'=>'Insert failed'));
 		}
 
 		public function update() {
@@ -123,7 +139,7 @@
 			$stmt 		= $this->pdo->prepare($sql);
 
 			$stmt->execute($bind);
-			self::render($stmt->rowCount(), array('message'=>'Update failed'));
+			self::render($stmt->rowCount() ? array('status'=>200, 'message'=>$stmt->rowCount()) : array('status'=>400, 'message'=>'Update failed'));
 		}
 		
 		public function delete() {
@@ -136,19 +152,23 @@
 			$stmt 		= $this->pdo->prepare($sql);
 
 			$stmt->execute($bind);
-			self::render($stmt->rowCount(), array('message'=>'Delete failed'));
+			self::render($stmt->rowCount() ? array('status'=>200, 'message'=>$stmt->rowCount()) : array('status'=>400, 'message'=>'Delete failed'));
+		}
+		
+		public function method_not_allowed(){
+			
+			self::render(array('status'=>405, 'message'=>'Method not allowed'));
+		}
+		
+		public function error($message){
+
+			self::render(array('status'=>500, 'message'=>$message));
 		}
 
-		private function render($out, $error) {
+		private function render($output) {
 
-			if ($out){
-				echo json_encode($out, JSON_UNESCAPED_UNICODE) . PHP_EOL;
-				$this->method == 'PUT' ? http_response_code(201) : http_response_code(200);
-			}
-			else {
-				echo json_encode($error, JSON_UNESCAPED_UNICODE) . PHP_EOL;
-				http_response_code(202);
-			}
+			echo json_encode($output['message'], JSON_UNESCAPED_UNICODE) . PHP_EOL;
+			http_response_code($output['status']);
 			exit(0);
 		}
 	}
